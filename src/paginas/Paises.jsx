@@ -5,55 +5,15 @@ function Paises() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const resPaises = await fetch('http://localhost:4000/api/countries')
-        const dataPaises = await resPaises.json()
-        setPaises(dataPaises)
-
-        const resOfertas = await fetch('http://localhost:4000/api/packages')
-        const dataOfertas = await resOfertas.json()
-        setOfertas(dataOfertas)
-      } catch (err) {
-        console.error("Error cargando datos:", err)
-      }
-    }
-    fetchData()
-  }, [])
-
-  const openModal = (item) => {
-    setSelectedItem(item)
-    setModalOpen(true)
-  }
-
-  // 2. PROCESO LÓGICO: Comprar paquete (Usa tu PROCEDURE sp_comprar_paquete)
-  const handleCompra = async () => {
-    if (!user) return alert("Debes iniciar sesión")
-    setLoading(true)
-
-    try {
-      const res = await fetch('http://localhost:4000/api/buy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          user_id: user.id, 
-          package_id: selectedItem.id 
-        })
+    // Llamamos a la API que creamos en el index.js del servidor
+    fetch('http://localhost:4000/api/paises')
+      .then(res => {
+        if (!res.ok) throw new Error('Error al obtener viajes')
+        return res.json()
       })
-      const data = await res.json()
-
-      if (res.ok) {
-        alert("¡Compra exitosa! Revisa tu correo.")
-        setModalOpen(false)
-      } else {
-        alert(data.error || "Error en la compra")
-      }
-    } catch (err) {
-      alert("Error de conexión con el servidor")
-    } finally {
-      setLoading(false)
-    }
-  }
+      .then(data => setViajes(data))
+      .catch(err => setError(err.message))
+  }, [])
 
   return (
     <div className="max-w-7xl mx-auto p-8 animate-fadeIn">
