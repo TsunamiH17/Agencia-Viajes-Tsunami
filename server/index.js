@@ -1,63 +1,76 @@
 import express from 'express';
 import mysql from 'mysql2';
 import cors from 'cors';
-import bcrypt from 'bcrypt'; // <--- Importamos bcrypt
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = 4000;
 
+// --- CONFIGURACIÓN DE MIDDLEWARES ---
+app.use(cors()); // Permite que tu React (5173) hable con este servidor (4000)
+app.use(express.json()); // Permite leer los datos que envías en el Login y Registro
+
+// --- CONEXIÓN A LA BASE DE DATOS ---
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'agencia-viajes'
+  database: 'agencia-viajes' // Asegúrate de que este es el nombre en tu phpMyAdmin
 });
 
-const saltRounds = 10; // Nivel de seguridad de la encriptación
+db.connect((err) => {
+  if (err) {
+    console.error('❌ Error conectando a MySQL:', err.message);
+    return;
+  }
+  console.log('✅ Conectado a la base de datos MySQL: agencia-viajes');
+});
 
-// LOGIN CON BCRYPT
+// --- RUTA 1: LOGIN ---
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
-  const query = 'SELECT id, name, email, password, role FROM users WHERE email = ?';
+  const query = 'SELECT id, name, email, role FROM users WHERE email = ? AND password = ?';
   
-  db.query(query, [email], async (err, results) => {
+  db.execute(query, [email, password], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     
     if (results.length > 0) {
-      const user = results[0];
-      // Comparamos la clave escrita con el hash de la BD
-      const match = await bcrypt.compare(password, user.password);
-      
-      if (match) {
-        res.json({ user: { id: user.id, name: user.name, role: user.role }, token: 'token-seguro' });
-      } else {
-        res.status(401).json({ error: 'Contraseña incorrecta' });
-      }
+      res.json({ user: results[0], token: 'token-sesion-tsunami' });
     } else {
-      res.status(401).json({ error: 'Usuario no encontrado' });
+      res.status(401).json({ error: 'Email o contraseña incorrectos' });
     }
   });
 });
 
-// REGISTRO CON BCRYPT
-app.post('/api/register', async (req, res) => {
-  const { name, email, password } = req.body;
+// --- RUTA 2: OBTENER TODOS LOS VIAJES (PAÍSES) ---
+app.get('/api/paises', (req, res) => {
+  // Consultamos la tabla 'countries' que tienes en tu estructura
+  const query = 'SELECT * FROM countries';
   
-  try {
-    // Encriptamos la contraseña antes de guardarla
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-    
-    const query = 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, "client")';
-    db.query(query, [name, email, hashedPassword], (err, result) => {
-      if (err) return res.status(500).json({ error: "Email ya registrado" });
-      
-      db.query('INSERT INTO wallets (user_id, balance) VALUES (?, 1000)', [result.insertId]);
-      res.status(201).json({ message: "OK" });
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Error al encriptar" });
-  }
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
 });
 
-app.listen(4000, () => console.log("✅ SERVIDOR SEGURO EN EL 4000"));
+// --- RUTA 3: ESTADÍSTICAS (RANKING) ---
+app.get('/api/stats', (req, res) => {
+  // Usamos la vista que creamos para el ranking de países
+  db.query('SELECT * FROM v_estadisticas_paises', (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// --- RUTA 4: VENTAS RECIENTES ---
+app.get('/api/ventas', (req, res) => {
+  // Usamos la vista de resumen de ventas
+  db.query('SELECT * FROM v_resumen_ventas ORDER BY fecha DESC LIMIT 10', (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// --- INICIO DEL SERVIDOR ---
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor de Tsunami Viajes corriendo en http://localhost:${PORT}`);
+});
