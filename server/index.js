@@ -3,18 +3,18 @@ import mysql from 'mysql2';
 import cors from 'cors';
 
 const app = express();
-const PORT = 4000; // El puerto que muestra tu terminal
+const PORT = 4000;
 
 // --- CONFIGURACIÓN DE MIDDLEWARES ---
-app.use(cors()); // Permite la comunicación con el frontend
-app.use(express.json()); // Permite leer los datos JSON del login
+app.use(cors()); // Permite que tu React (5173) hable con este servidor (4000)
+app.use(express.json()); // Permite leer los datos que envías en el Login y Registro
 
 // --- CONEXIÓN A LA BASE DE DATOS ---
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'agencia-viajes' // Tu base de datos
+  database: 'agencia-viajes' // Asegúrate de que este es el nombre en tu phpMyAdmin
 });
 
 db.connect((err) => {
@@ -25,7 +25,7 @@ db.connect((err) => {
   console.log('✅ Conectado a la base de datos MySQL: agencia-viajes');
 });
 
-// --- ENDPOINT: LOGIN ---
+// --- RUTA 1: LOGIN ---
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const query = 'SELECT id, name, email, role FROM users WHERE email = ? AND password = ?';
@@ -34,30 +34,43 @@ app.post('/api/login', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     
     if (results.length > 0) {
-      // Devolvemos los datos del usuario, incluyendo el rol para las estadísticas
-      res.json({ user: results[0], token: 'token-sesion-practica-123' });
+      res.json({ user: results[0], token: 'token-sesion-tsunami' });
     } else {
       res.status(401).json({ error: 'Email o contraseña incorrectos' });
     }
   });
 });
 
-// --- ENDPOINT: ESTADÍSTICAS ---
+// --- RUTA 2: OBTENER TODOS LOS VIAJES (PAÍSES) ---
+app.get('/api/paises', (req, res) => {
+  // Consultamos la tabla 'countries' que tienes en tu estructura
+  const query = 'SELECT * FROM countries';
+  
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// --- RUTA 3: ESTADÍSTICAS (RANKING) ---
 app.get('/api/stats', (req, res) => {
+  // Usamos la vista que creamos para el ranking de países
   db.query('SELECT * FROM v_estadisticas_paises', (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });
 
-// --- ENDPOINT: ÚLTIMAS VENTAS ---
+// --- RUTA 4: VENTAS RECIENTES ---
 app.get('/api/ventas', (req, res) => {
+  // Usamos la vista de resumen de ventas
   db.query('SELECT * FROM v_resumen_ventas ORDER BY fecha DESC LIMIT 10', (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });
 
+// --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`🚀 Servidor de Tsunami Viajes corriendo en http://localhost:${PORT}`);
 });
