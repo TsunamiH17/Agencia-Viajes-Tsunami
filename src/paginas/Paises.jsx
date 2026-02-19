@@ -12,11 +12,11 @@ function Paises({ user }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const resPaises = await fetch('http://localhost:3000/api/countries')
+        const resPaises = await fetch('http://localhost:4000/api/countries')
         const dataPaises = await resPaises.json()
         setPaises(dataPaises)
 
-        const resOfertas = await fetch('http://localhost:3000/api/packages')
+        const resOfertas = await fetch('http://localhost:4000/api/packages')
         const dataOfertas = await resOfertas.json()
         setOfertas(dataOfertas)
       } catch (err) {
@@ -37,7 +37,7 @@ function Paises({ user }) {
     setLoading(true)
 
     try {
-      const res = await fetch('http://localhost:3000/api/buy', {
+      const res = await fetch('http://localhost:4000/api/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
