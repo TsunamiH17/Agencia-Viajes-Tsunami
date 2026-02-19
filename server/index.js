@@ -6,15 +6,15 @@ const app = express();
 const PORT = 4000;
 
 // --- CONFIGURACIÓN DE MIDDLEWARES ---
-app.use(cors()); // Permite que tu React (5173) hable con este servidor (4000)
-app.use(express.json()); // Permite leer los datos que envías en el Login y Registro
+app.use(cors()); 
+app.use(express.json()); 
 
 // --- CONEXIÓN A LA BASE DE DATOS ---
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'agencia-viajes' // Asegúrate de que este es el nombre en tu phpMyAdmin
+  database: 'agencia-viajes' 
 });
 
 db.connect((err) => {
@@ -43,18 +43,18 @@ app.post('/api/login', (req, res) => {
 
 // --- RUTA 2: OBTENER TODOS LOS VIAJES (PAÍSES) ---
 app.get('/api/paises', (req, res) => {
-  // Consultamos la tabla 'countries' que tienes en tu estructura
   const query = 'SELECT * FROM countries';
-  
   db.query(query, (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error('❌ Error en SELECT paises:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
     res.json(results);
   });
 });
 
 // --- RUTA 3: ESTADÍSTICAS (RANKING) ---
 app.get('/api/stats', (req, res) => {
-  // Usamos la vista que creamos para el ranking de países
   db.query('SELECT * FROM v_estadisticas_paises', (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
@@ -63,35 +63,53 @@ app.get('/api/stats', (req, res) => {
 
 // --- RUTA 4: VENTAS RECIENTES ---
 app.get('/api/ventas', (req, res) => {
-  // Usamos la vista de resumen de ventas
   db.query('SELECT * FROM v_resumen_ventas ORDER BY fecha DESC LIMIT 10', (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });
 
-// --- INICIO DEL SERVIDOR ---
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor de Tsunami Viajes corriendo en http://localhost:${PORT}`);
-});
-// --- RUTA 5: CREAR UNA RESERVA (CORREGIDA) ---
-app.post('/api/reservar', (req, res) => {
-  // Recibimos también el id del usuario que hace la compra
-  const { id_usuario, id_viaje, precio } = req.body;
-  
-  // Usamos 'bookings' porque es la tabla que ya tienes creada
-  // 'package_id' en tu DB es un VARCHAR, por eso usamos el código del país o ID
-  const query = 'INSERT INTO bookings (user_id, package_id, total_paid, status) VALUES (?, ?, ?, "confirmed")';
+// --- RUTA 5: COMPRA CON SALDO (PROCEDURE) ---
+// --- RUTA 5: COMPRA CON SALDO (PROCEDURE CORREGIDO) ---
+app.post('/api/comprar', (req, res) => {
+  // Recibimos id_viaje (ej: 'JPN') desde el frontend
+  const { id_usuario, id_viaje } = req.body;
 
-  db.execute(query, [id_usuario, id_viaje, precio], (err, result) => {
-    if (err) {
-      console.error('❌ Error al insertar reserva:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
+  // 1. Buscamos el ID real del paquete ('JPN-01')
+  const queryGetPackage = 'SELECT id FROM packages WHERE country_code = ? LIMIT 1';
+
+  db.execute(queryGetPackage, [id_viaje], (err, packageResults) => {
+    if (err) return res.status(500).json({ error: err.message });
     
-    res.status(201).json({ 
-      mensaje: 'Reserva realizada con éxito', 
-      id_reserva: result.insertId 
+    if (packageResults.length === 0) {
+      return res.status(404).json({ error: 'No hay paquetes disponibles para este destino' });
+    }
+
+    const packageId = packageResults[0].id; // Ej: 'JPN-01'
+
+    // 2. Ahora sí, llamamos al procedimiento con el ID correcto
+    const queryProcedure = 'CALL sp_comprar_paquete(?, ?)';
+
+    db.query(queryProcedure, [id_usuario, packageId], (err, results) => {
+      if (err) {
+        console.error('❌ Error en la compra:', err.message);
+        return res.status(400).json({ error: err.message });
+      }
+      
+      res.json({ mensaje: 'Compra realizada con éxito y saldo descontado' });
     });
   });
+});
+
+// --- RUTA 6: OBTENER SALDO DEL USUARIO ---
+app.get('/api/wallet/:userId', (req, res) => {
+  db.query('SELECT balance FROM wallets WHERE user_id = ?', [req.params.userId], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results[0] || { balance: 0 });
+  });
+});
+
+// --- INICIO DEL SERVIDOR (AL FINAL) ---
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor de Tsunami Viajes corriendo en http://localhost:${PORT}`);
 });

@@ -8,26 +8,27 @@ import Bloque3 from './componentes/Bloque3'
 import Paises from './paginas/Paises'
 import Noticias from './paginas/Noticias'
 import Register from './paginas/Register'
-// --- NUEVO: IMPORTACIÓN DE LA PÁGINA DE ESTADÍSTICAS ---
 import Estadisticas from './paginas/Estadisticas' 
 
 function App() {
-  // Estado global del usuario (Persistencia en localStorage)
+  // 1. ESTADO GLOBAL DEL USUARIO (Persistencia)
   const [usuarioLogueado, setUsuarioLogueado] = useState(() => {
     const saved = localStorage.getItem('usuario_tsunami')
     return saved ? JSON.parse(saved) : null
   })
 
+  // 2. ESTADO GLOBAL DEL CARRITO
+  const [carrito, setCarrito] = useState([])
+
+  // 3. ESTADO DE NAVEGACIÓN
   const [route, setRoute] = useState(window.location.hash || '#inicio')
 
-  // Manejo de navegación por Hash
   useEffect(() => {
     const onHash = () => setRoute(window.location.hash || '#inicio')
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  // Guardar sesión cuando cambia el usuario
   useEffect(() => {
     if (usuarioLogueado) {
       localStorage.setItem('usuario_tsunami', JSON.stringify(usuarioLogueado))
@@ -37,8 +38,8 @@ function App() {
     }
   }, [usuarioLogueado])
 
+  // --- FUNCIONES DE SESIÓN ---
   const handleLogin = (datosServidor) => {
-    // datosServidor viene del backend: { user: {id, name, role}, token }
     setUsuarioLogueado(datosServidor.user)
     localStorage.setItem('token_tsunami', datosServidor.token)
     window.location.hash = '#inicio'
@@ -46,12 +47,27 @@ function App() {
 
   const handleLogout = () => {
     setUsuarioLogueado(null)
+    setCarrito([]) // Vaciamos carrito al cerrar sesión por seguridad
     window.location.hash = '#inicio'
   }
 
-  // --- Lógica de Renderizado de Rutas ---
+  // --- FUNCIONES DEL CARRITO ---
+  const agregarAlCarrito = (viaje) => {
+    // Evitamos duplicados en el carrito si lo deseas, o permitimos varios
+    setCarrito((prev) => [...prev, viaje])
+    alert(`🌟 ${viaje.name} se ha añadido a tu selección.`)
+  }
 
-  // Páginas de acceso sin Header/Footer
+  const vaciarCarrito = () => {
+    setCarrito([])
+  }
+
+  const eliminarDelCarrito = (index) => {
+    setCarrito((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // --- RENDERIZADO ---
+
   if (route === '#login' || route === '#/login') {
     return <Login onLogin={handleLogin} backgroundImage="/images/fondos/1456.jpg" />
   }
@@ -62,33 +78,71 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* El Header reacciona al rol del usuario para mostrar el botón de Admin */}
-      <Header usuario={usuarioLogueado} onLogout={handleLogout} />
+      {/* Pasamos el contador del carrito al Header para que el usuario vea cuántos lleva */}
+      <Header 
+        usuario={usuarioLogueado} 
+        onLogout={handleLogout} 
+        cartCount={carrito.length} 
+      />
 
       <main className="flex-grow">
         {(() => {
           switch (true) {
             case route === '#paises' || route === '#/paises':
-              // Se pasa el usuario para poder realizar la reserva en la tabla bookings
-              return <Paises user={usuarioLogueado} />
+              // Ahora Paises no compra directo, sino que añade al carrito global
+              return (
+                <Paises 
+                  user={usuarioLogueado} 
+                  onAgregarCarrito={agregarAlCarrito} 
+                />
+              )
+
+            case route === '#carrito' || route === '#/carrito':
+              // Aquí iría tu nueva página de Checkout para pagar con el saldo de 'wallets'
+              return (
+                <div className="max-w-4xl mx-auto p-10">
+                  <h2 className="text-3xl font-black mb-6">Tu Carrito ({carrito.length})</h2>
+                  {carrito.length > 0 ? (
+                    <div className="bg-white p-6 rounded-3xl shadow-lg">
+                      {carrito.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center border-b py-4">
+                          <div>
+                            <p className="font-bold text-lg">{item.name}</p>
+                            <p className="text-blue-600 font-black">{item.price}€</p>
+                          </div>
+                          <button 
+                            onClick={() => eliminarDelCarrito(index)}
+                            className="text-red-500 font-bold hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      ))}
+                      <div className="mt-8 flex justify-between items-center">
+                        <p className="text-2xl font-black">Total: {carrito.reduce((acc, item) => acc + Number(item.price), 0)}€</p>
+                        <button 
+                          onClick={() => alert("Próximo paso: Ejecutar PROCEDURE sp_comprar_paquete para cada item")}
+                          className="bg-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-green-700"
+                        >
+                          Pagar con mi Saldo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 italic">El carrito está vacío. ¡Explora nuestros destinos!</p>
+                  )}
+                </div>
+              )
             
-            case route.startsWith('#noticias') || route.startsWith('#/noticias'):
+            case route.startsWith('#noticias'):
               return <Noticias usuarioLogueado={usuarioLogueado} />
 
-            // --- NUEVA RUTA: ESTADÍSTICAS (PROTEGIDA) ---
-            case route === '#estadisticas' || route === '#/estadisticas':
-              // Validación de seguridad: Solo admins pueden entrar
+            case route === '#estadisticas':
               if (usuarioLogueado?.role === 'admin') {
                 return <Estadisticas />
-              } else {
-                return (
-                  <div className="flex flex-col items-center justify-center p-20">
-                    <h2 className="text-2xl font-bold text-red-600">🚫 Acceso Restringido</h2>
-                    <p className="text-slate-600">Esta sección solo es accesible para administradores.</p>
-                    <a href="#inicio" className="mt-4 text-blue-500 underline">Volver al inicio</a>
-                  </div>
-                )
               }
+              window.location.hash = '#inicio'
+              return null
             
             case route === '#inicio' || route === '':
             default:
