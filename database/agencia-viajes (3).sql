@@ -469,3 +469,5 @@ INSERT INTO `flights` (`origin`, `destination_code`, `departure_date`, `return_d
 ('Madrid (MAD)', 'PER', '2026-09-05 13:00:00', '2026-09-20 21:00:00', 740.00, 30),
 ('Valencia (VLC)', 'JOR', '2026-10-10 10:00:00', '2026-10-20 20:00:00', 350.00, 25),
 ('Madrid (MAD)', 'ITA', '2026-06-15 09:00:00', '2026-06-22 21:00:00', 65.00, 40);
+UPDATE users SET password = 'juan123' WHERE email = 'juan@gmail.com';
+UPDATE users SET password = 'admin123' WHERE email = 'admin@tsunami.com';

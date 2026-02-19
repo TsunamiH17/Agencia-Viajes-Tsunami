@@ -25,7 +25,7 @@ db.connect((err) => {
   console.log('✅ Conectado a la base de datos MySQL: agencia-viajes');
 });
 
-// --- RUTA 1: LOGIN ---
+// --- RUTA 1: LOGIN (Texto plano para evitar errores de cifrado) ---
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const query = 'SELECT id, name, email, role FROM users WHERE email = ? AND password = ?';
@@ -34,6 +34,7 @@ app.post('/api/login', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     
     if (results.length > 0) {
+      // Devolvemos el usuario y un token fijo para que la sesión sea estable
       res.json({ user: results[0], token: 'token-sesion-tsunami' });
     } else {
       res.status(401).json({ error: 'Email o contraseña incorrectos' });
@@ -41,14 +42,31 @@ app.post('/api/login', (req, res) => {
   });
 });
 
+// --- RUTA EXTRA: REGISTRO (Necesaria para tu componente Register.jsx) ---
+app.post('/api/register', (req, res) => {
+  const { name, email, password } = req.body;
+  const query = 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, "client")';
+  
+  db.execute(query, [name, email, password], (err, result) => {
+    if (err) {
+      if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'El email ya existe' });
+      return res.status(500).json({ error: err.message });
+    }
+    
+    const userId = result.insertId;
+    // Creamos la cartera (Wallet) automáticamente con 0€ para el nuevo usuario
+    db.execute('INSERT INTO wallets (user_id, balance) VALUES (?, 0)', [userId], (errW) => {
+      if (errW) console.error("Error al crear wallet:", errW.message);
+      res.json({ mensaje: 'Usuario registrado con éxito' });
+    });
+  });
+});
+
 // --- RUTA 2: OBTENER TODOS LOS VIAJES (PAÍSES) ---
 app.get('/api/paises', (req, res) => {
   const query = 'SELECT * FROM countries';
   db.query(query, (err, results) => {
-    if (err) {
-      console.error('❌ Error en SELECT paises:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });
@@ -70,12 +88,10 @@ app.get('/api/ventas', (req, res) => {
 });
 
 // --- RUTA 5: COMPRA CON SALDO (PROCEDURE) ---
-// --- RUTA 5: COMPRA CON SALDO (PROCEDURE CORREGIDO) ---
 app.post('/api/comprar', (req, res) => {
-  // Recibimos id_viaje (ej: 'JPN') desde el frontend
   const { id_usuario, id_viaje } = req.body;
 
-  // 1. Buscamos el ID real del paquete ('JPN-01')
+  // 1. Buscamos el ID real del paquete (ej: 'JPN-01') usando el código del país
   const queryGetPackage = 'SELECT id FROM packages WHERE country_code = ? LIMIT 1';
 
   db.execute(queryGetPackage, [id_viaje], (err, packageResults) => {
@@ -85,17 +101,13 @@ app.post('/api/comprar', (req, res) => {
       return res.status(404).json({ error: 'No hay paquetes disponibles para este destino' });
     }
 
-    const packageId = packageResults[0].id; // Ej: 'JPN-01'
+    const packageId = packageResults[0].id;
 
-    // 2. Ahora sí, llamamos al procedimiento con el ID correcto
+    // 2. Llamamos al procedimiento almacenado de tu base de datos
     const queryProcedure = 'CALL sp_comprar_paquete(?, ?)';
 
-    db.query(queryProcedure, [id_usuario, packageId], (err, results) => {
-      if (err) {
-        console.error('❌ Error en la compra:', err.message);
-        return res.status(400).json({ error: err.message });
-      }
-      
+    db.query(queryProcedure, [id_usuario, packageId], (errProc, results) => {
+      if (errProc) return res.status(400).json({ error: errProc.message });
       res.json({ mensaje: 'Compra realizada con éxito y saldo descontado' });
     });
   });
@@ -108,9 +120,9 @@ app.get('/api/wallet/:userId', (req, res) => {
     res.json(results[0] || { balance: 0 });
   });
 });
+
 // --- RUTA 7: HISTORIAL DE RESERVAS DEL USUARIO ---
 app.get('/api/reservas/:userId', (req, res) => {
-  // Mezclamos las tablas para devolver la foto, el nombre del país y el precio pagado
   const query = `
     SELECT b.id, b.booking_date, b.total_paid, b.status, p.title, c.name as country_name, c.image_url
     FROM bookings b
@@ -125,35 +137,29 @@ app.get('/api/reservas/:userId', (req, res) => {
     res.json(results);
   });
 });
+
 // --- RUTA 8: RECARGAR SALDO (WALLET) ---
 app.post('/api/wallet/recargar', (req, res) => {
   const { user_id, amount } = req.body;
-  
-  // Sumamos la cantidad enviada al saldo actual
   const query = 'UPDATE wallets SET balance = balance + ? WHERE user_id = ?';
   
   db.execute(query, [amount, user_id], (err, result) => {
-    if (err) {
-      console.error('❌ Error al recargar:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ mensaje: 'Saldo recargado con éxito' });
   });
 });
+
 // --- RUTA 9: OBTENER VUELOS DISPONIBLES POR DESTINO ---
 app.get('/api/vuelos/:destino', (req, res) => {
-  // Buscamos vuelos que vayan a ese país y que aún tengan asientos libres
   const query = 'SELECT * FROM flights WHERE destination_code = ? AND seats_available > 0 ORDER BY departure_date ASC';
   
   db.query(query, [req.params.destino], (err, results) => {
-    if (err) {
-      console.error('❌ Error al buscar vuelos:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });
-// --- INICIO DEL SERVIDOR (AL FINAL) ---
+
+// --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`🚀 Servidor de Tsunami Viajes corriendo en http://localhost:${PORT}`);
 });

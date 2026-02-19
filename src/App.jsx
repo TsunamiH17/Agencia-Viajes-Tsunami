@@ -10,11 +10,10 @@ import Noticias from './paginas/Noticias'
 import Register from './paginas/Register'
 import Estadisticas from './paginas/Estadisticas' 
 import Carrito from './paginas/Carrito'
-
-// 👉 1. AQUÍ ESTÁ EL IMPORT DEL PERFIL QUE NECESITAMOS AÑADIR
 import Perfil from './paginas/Perfil'
 
 function App() {
+  // 1. CARGA INICIAL: Recuperamos al usuario al abrir o refrescar la web
   const [usuarioLogueado, setUsuarioLogueado] = useState(() => {
     const saved = localStorage.getItem('usuario_tsunami')
     return saved ? JSON.parse(saved) : null
@@ -23,12 +22,14 @@ function App() {
   const [carrito, setCarrito] = useState([])
   const [route, setRoute] = useState(window.location.hash || '#inicio')
 
+  // 2. NAVEGACIÓN: Escucha los cambios en la URL (los hashes #)
   useEffect(() => {
     const onHash = () => setRoute(window.location.hash || '#inicio')
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  // 3. PERSISTENCIA: Si el usuario cambia, lo guardamos o borramos del localStorage
   useEffect(() => {
     if (usuarioLogueado) {
       localStorage.setItem('usuario_tsunami', JSON.stringify(usuarioLogueado))
@@ -55,14 +56,13 @@ function App() {
     alert(`🌟 ${viaje.name} se ha añadido a tu selección.`)
   }
 
-  const vaciarCarrito = () => {
-    setCarrito([])
-  }
-
+  const vaciarCarrito = () => setCarrito([])
+  
   const eliminarDelCarrito = (index) => {
     setCarrito((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // 4. VISTAS ESPECIALES (Login y Registro no llevan Header/Footer)
   if (route === '#login' || route === '#/login') {
     return <Login onLogin={handleLogin} backgroundImage="/images/fondos/1456.jpg" />
   }
@@ -95,7 +95,6 @@ function App() {
                 />
               )
 
-            // 👉 2. AQUÍ ESTÁ EXACTAMENTE EL CÓDIGO QUE ME HAS PREGUNTADO DÓNDE PONER
             case route === '#perfil' || route === '#/perfil':
               return <Perfil user={usuarioLogueado} onLogout={handleLogout} />
             
