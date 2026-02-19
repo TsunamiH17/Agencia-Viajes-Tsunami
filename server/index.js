@@ -125,7 +125,21 @@ app.get('/api/reservas/:userId', (req, res) => {
     res.json(results);
   });
 });
-
+// --- RUTA 8: RECARGAR SALDO (WALLET) ---
+app.post('/api/wallet/recargar', (req, res) => {
+  const { user_id, amount } = req.body;
+  
+  // Sumamos la cantidad enviada al saldo actual
+  const query = 'UPDATE wallets SET balance = balance + ? WHERE user_id = ?';
+  
+  db.execute(query, [amount, user_id], (err, result) => {
+    if (err) {
+      console.error('❌ Error al recargar:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ mensaje: 'Saldo recargado con éxito' });
+  });
+});
 // --- INICIO DEL SERVIDOR (AL FINAL) ---
 app.listen(PORT, () => {
   console.log(`🚀 Servidor de Tsunami Viajes corriendo en http://localhost:${PORT}`);
