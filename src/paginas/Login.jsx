@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 function Login({ onLogin, backgroundImage }) {
-  // Usamos 'email' porque así está definido en tu tabla 'users'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -11,7 +10,6 @@ function Login({ onLogin, backgroundImage }) {
     setError('')
 
     try {
-      // Conexión con el endpoint del server.js
       const response = await fetch('http://localhost:4000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -21,7 +19,6 @@ function Login({ onLogin, backgroundImage }) {
       const data = await response.json()
 
       if (response.ok) {
-        // Pasamos el objeto usuario y el token al estado global de App.jsx
         onLogin(data) 
       } else {
         setError(data.error || 'Error al iniciar sesión')
@@ -37,43 +34,60 @@ function Login({ onLogin, backgroundImage }) {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4" 
+      className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC] relative overflow-hidden" 
       style={containerStyle}
     >
-      {/* Tarjeta con Tailwind y efectos de entrada (Animaciones visibles) */}
-      <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all hover:scale-[1.01] duration-300 animate-fadeIn">
+      {/* Botón Volver Atrás (Sin Router, usando href al index) */}
+      <a 
+        href="/"
+        className="absolute top-8 left-8 flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold transition-all group z-10"
+      >
+        <div className="bg-white p-2.5 rounded-full shadow-lg border border-slate-100 group-hover:-translate-x-1 transition-transform">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </div>
+        <span className="hidden sm:inline text-sm tracking-tight">Volver al Menú</span>
+      </a>
+
+      {/* Círculos de diseño modernos en el fondo */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-60"></div>
+      <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-cyan-100 rounded-full blur-3xl opacity-60"></div>
+
+      {/* Tarjeta de Login */}
+      <div className="bg-white/70 backdrop-blur-2xl p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] w-full max-w-md border border-white relative z-0">
         
         <form onSubmit={handleSubmit} className="flex flex-col space-y-6">
           <div className="text-center">
-            <h1 className="text-4xl font-black text-blue-900 mb-2">Bienvenido</h1>
-            <p className="text-gray-500 text-sm">Ingresa a tu cuenta de Agencia Tsunami</p>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Bienvenido</h1>
+            <p className="text-slate-500 font-medium text-sm mt-1">Accede a tu cuenta de Agencia Tsunami</p>
           </div>
 
           {error && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 text-sm rounded">
-              {error}
+            <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl font-bold text-xs flex items-center gap-2">
+              <span>⚠️</span> {error}
             </div>
           )}
 
           <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-gray-400 uppercase ml-1">Email</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Email</label>
               <input
                 type="email"
                 required
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="ejemplo@correo.com"
+                className="w-full p-4 bg-slate-100/50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all placeholder:text-slate-300 font-medium"
+                placeholder="usuario@correo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-gray-400 uppercase ml-1">Contraseña</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Contraseña</label>
               <input
                 type="password"
                 required
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-4 bg-slate-100/50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all placeholder:text-slate-300 font-medium"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -83,14 +97,16 @@ function Login({ onLogin, backgroundImage }) {
 
           <button 
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95"
+            className="w-full bg-slate-900 hover:bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-200 transition-all active:scale-95 flex justify-center items-center gap-2"
           >
             Entrar a la Agencia
           </button>
 
-          <p className="text-center text-gray-400 text-xs">
-            Al entrar aceptas los términos de servicio y privacidad.
-          </p>
+          <div className="text-center pt-2">
+            <p className="text-sm font-bold text-slate-400">
+              ¿No tienes cuenta? <a href="#register" className="text-blue-600 hover:underline">Regístrate</a>
+            </p>
+          </div>
         </form>
       </div>
     </div>
