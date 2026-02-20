@@ -1,29 +1,32 @@
 import { useState, useEffect } from 'react'
 
 function Paises({ user, onAgregarCarrito }) {
-  const [viajes, setViajes] = useState([])
-  const [error, setError] = useState(null)
-  const [cargando, setCargando] = useState(true)
+  // --- ESTADOS ---
+  const [viajes, setViajes] = useState([]) // Aquí guardo todos los países que vienen de la API
+  const [error, setError] = useState(null) // Para guardar el mensaje si el servidor falla
+  const [cargando, setCargando] = useState(true) // Para mostrar el spinner de carga
 
-  // 1. NUEVOS ESTADOS PARA EL BUSCADOR Y ORDENAMIENTO
+  // Estados para el buscador y el selector de orden
   const [busqueda, setBusqueda] = useState('')
   const [orden, setOrden] = useState('defecto')
 
-  // Estados para el Modal de Vuelos (Lo mantenemos igual)
+  // Estados para el modal de vuelos
   const [modalAbierto, setModalAbierto] = useState(false)
   const [destinoSeleccionado, setDestinoSeleccionado] = useState(null)
-  const [vuelos, setVuelos] = useState([])
+  const [vuelos, setVuelos] = useState([]) // Aquí guardo los vuelos que encuentro para un país
   const [buscandoVuelos, setBuscandoVuelos] = useState(false)
 
+  // --- EFECTOS (Llamada a la API) ---
   useEffect(() => {
+    // Al cargar el componente, pido la lista de países al backend (puerto 4000)
     fetch('http://localhost:4000/api/paises')
       .then(res => {
         if (!res.ok) throw new Error('No se pudieron obtener los destinos del servidor')
         return res.json()
       })
       .then(data => {
-        setViajes(data)
-        setCargando(false)
+        setViajes(data) // Guardo los datos en el estado
+        setCargando(false) // Quito el spinner de carga
       })
       .catch(err => {
         setError(err.message)
@@ -31,7 +34,9 @@ function Paises({ user, onAgregarCarrito }) {
       })
   }, [])
 
+  // --- LÓGICA DE VUELOS ---
   const abrirModalVuelos = async (destino) => {
+    // Si el usuario no está logueado, no le dejo reservar
     if (!user) {
       alert("⚠️ Debes iniciar sesión para configurar tu viaje.");
       return;
@@ -42,6 +47,7 @@ function Paises({ user, onAgregarCarrito }) {
     setBuscandoVuelos(true);
 
     try {
+      // Llamo a la API de vuelos pasando el código del país (ej: 'JPN')
       const respuesta = await fetch(`http://localhost:4000/api/vuelos/${destino.code}`);
       const datosVuelos = await respuesta.json();
       setVuelos(datosVuelos);
@@ -53,187 +59,196 @@ function Paises({ user, onAgregarCarrito }) {
   };
 
   const confirmarVuelo = (vueloElegido) => {
+    // Cuando el usuario elige un vuelo, creo un objeto que mezcla el Destino + el Vuelo
     const viajeConfigurado = {
       ...destinoSeleccionado,
       flight: vueloElegido,
       nombreVuelo: `Salida desde ${vueloElegido.origin} el ${new Date(vueloElegido.departure_date).toLocaleDateString()}`
     };
     
+    // Lo mando a la función que viene por props de App.js para meterlo al carrito
     onAgregarCarrito(viajeConfigurado);
-    setModalAbierto(false);
+    setModalAbierto(false); // Cierro el modal
   };
 
-  // 2. LÓGICA MÁGICA DE FILTRADO Y ORDENAMIENTO EN TIEMPO REAL
+  // --- FILTRADO Y ORDENACIÓN ---
+  // Esta variable se recalcula cada vez que escribimos en el buscador o cambiamos el select
   const viajesProcesados = viajes
     .filter(destino => 
-      // Busca por nombre del país o por palabras en la descripción
       destino.name.toLowerCase().includes(busqueda.toLowerCase()) || 
       (destino.description && destino.description.toLowerCase().includes(busqueda.toLowerCase()))
     )
     .sort((a, b) => {
-      // Ordena según lo que elija el usuario en el selector
       if (orden === 'precio_asc') return a.price - b.price;
       if (orden === 'precio_desc') return b.price - a.price;
       if (orden === 'nombre_az') return a.name.localeCompare(b.name);
-      return 0; // 'defecto'
+      return 0;
     });
 
+  // Si todavía está cargando, muestro un spinner de Tailwind centrado
   if (cargando) return (
-    <div className="flex justify-center items-center min-h-[60vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+    <div className="flex justify-center items-center min-h-[60vh] animate__animated animate__fadeIn">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
     </div>
   )
 
   return (
-    <div className="max-w-7xl mx-auto p-8 animate-fadeIn relative">
+    <div className="max-w-7xl mx-auto p-8 relative">
       
-      <div className="mb-8">
-        <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter border-l-8 border-blue-600 pl-4">
-          Explora el Mundo
+      {/* Título de la sección con un borde izquierdo azul grueso */}
+      <div className="mb-10 animate__animated animate__fadeInLeft">
+        <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter border-l-[12px] border-blue-600 pl-6">
+          Explora el <span className="text-blue-600">Mundo</span>
         </h2>
-        <p className="text-slate-500 mt-2 font-medium">Encuentra tu próximo destino perfecto</p>
+        <p className="text-slate-500 mt-3 text-lg font-medium">Encuentra tu próximo destino con estilo</p>
       </div>
 
+      {/* Mensaje de error (solo si falla el fetch) */}
       {error && (
-        <div className="bg-red-50 border-red-200 border text-red-600 p-4 rounded-xl mb-8 flex items-center gap-2">
-          <span>⚠️</span> {error}
+        <div className="bg-red-50 border-red-200 border-2 text-red-600 p-5 rounded-2xl mb-8 flex items-center gap-3 animate__animated animate__shakeX">
+          <span className="text-xl">⚠️</span> {error}
         </div>
       )}
 
-      {/* 3. INTERFAZ DEL BUSCADOR Y FILTROS */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-10 flex flex-col md:flex-row gap-4 items-center justify-between">
-        
-        {/* Input de Búsqueda */}
+      {/* --- BARRA DE BÚSQUEDA Y FILTROS --- */}
+      <div className="bg-white/70 backdrop-blur-md p-5 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white mb-12 flex flex-col md:flex-row gap-5 items-center justify-between animate__animated animate__fadeInUp">
+        {/* Input de búsqueda con icono de lupa SVG */}
         <div className="relative w-full md:w-1/2 lg:w-2/3">
-          <svg className="w-6 h-6 absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg className="w-6 h-6 absolute left-5 top-1/2 transform -translate-y-1/2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input 
             type="text" 
-            placeholder="Busca por país, ciudad o temática (ej: 'Japón', 'Playa')..." 
+            placeholder="¿A dónde quieres ir?" 
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full bg-slate-50 pl-14 pr-4 py-4 rounded-2xl border border-transparent focus:bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none text-slate-700 font-bold transition-all placeholder:font-medium"
+            className="w-full bg-slate-100/50 pl-16 pr-6 py-5 rounded-[1.8rem] border-2 border-transparent focus:bg-white focus:border-blue-600 focus:ring-8 focus:ring-blue-100 outline-none text-slate-800 font-bold transition-all placeholder:text-slate-400"
           />
         </div>
 
-        {/* Selector de Orden */}
-        <div className="w-full md:w-auto flex items-center gap-3">
-          <span className="text-slate-400 font-bold text-sm hidden lg:block">Ordenar por:</span>
+        {/* Selector de orden (Precio, Nombre, etc.) */}
+        <div className="w-full md:w-auto flex items-center gap-4">
           <select 
             value={orden}
             onChange={(e) => setOrden(e.target.value)}
-            className="w-full md:w-auto bg-slate-50 border border-transparent py-4 pl-4 pr-12 rounded-2xl text-slate-700 font-bold focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none cursor-pointer appearance-none transition-all"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundPosition: 'right 1.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em 1.2em' }}
+            className="w-full md:w-auto bg-slate-100/50 border-2 border-transparent py-5 pl-6 pr-14 rounded-[1.8rem] text-slate-700 font-extrabold focus:border-blue-600 focus:ring-8 focus:ring-blue-100 outline-none cursor-pointer appearance-none transition-all"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%232563eb'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundPosition: 'right 1.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em 1.2em' }}
           >
-            <option value="defecto">Recomendados</option>
-            <option value="precio_asc">Precio: Más barato primero</option>
-            <option value="precio_desc">Precio: Más caro primero</option>
-            <option value="nombre_az">Nombre: A - Z</option>
+            <option value="defecto">⭐ Recomendados</option>
+            <option value="precio_asc">💰 Económicos primero</option>
+            <option value="precio_desc">💎 Premium primero</option>
+            <option value="nombre_az">🔤 Orden A-Z</option>
           </select>
         </div>
       </div>
 
-      {/* GRID DE PAÍSES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+      {/* --- RENDERIZADO DE LAS TARJETAS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {viajesProcesados.length > 0 ? (
-          viajesProcesados.map((destino) => (
-            <div key={destino.id} className="group bg-white rounded-3xl shadow-xl overflow-hidden hover:-translate-y-2 transition-all duration-300 border border-slate-100">
-              <div className="relative h-64 overflow-hidden">
-                <img src={destino.image_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={destino.name}/>
-                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-4 py-1 rounded-full font-black text-blue-600 shadow-lg">
-                  {destino.price ? `Desde ${destino.price}€` : 'Consultar'} 
+          viajesProcesados.map((destino, index) => (
+            <div 
+              key={destino.id} 
+              className="group bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 overflow-hidden hover:-translate-y-4 transition-all duration-500 border border-slate-50 animate__animated animate__fadeInUp"
+              // Cálculo para que las tarjetas salgan una detrás de otra con delay
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              {/* Imagen con el precio flotando arriba a la derecha */}
+              <div className="relative h-72 overflow-hidden">
+                <img src={destino.image_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={destino.name}/>
+                <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md px-5 py-2 rounded-2xl font-black text-blue-600 shadow-xl border border-white">
+                  {destino.price ? `${destino.price}€` : 'Consultar'} 
                 </div>
               </div>
               
               <div className="p-8">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-2xl font-bold text-slate-800">{destino.name}</h3>
-                  <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">{destino.code}</span>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">{destino.name}</h3>
+                  <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-tighter border border-blue-100">{destino.code}</span>
                 </div>
-                <p className="text-slate-500 text-sm leading-relaxed mb-6 line-clamp-3">{destino.description}</p>
+                {/* line-clamp-2 corta el texto a 2 líneas para que todas las tarjetas midan lo mismo */}
+                <p className="text-slate-500 text-sm leading-relaxed mb-8 line-clamp-2 font-medium">{destino.description}</p>
 
                 <button 
                   onClick={() => abrirModalVuelos(destino)}
-                  className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-blue-600 transition-colors shadow-lg active:scale-95 flex justify-center items-center gap-2"
+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-[1.5rem] hover:bg-blue-600 transition-all shadow-xl shadow-slate-200 hover:shadow-blue-200 active:scale-95 flex justify-center items-center gap-3 group/btn"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Configurar Viaje
+                  <span>Configurar mi Viaje</span>
+                  <span className="group-hover/btn:translate-x-1 transition-transform">🚀</span>
                 </button>
               </div>
             </div>
           ))
         ) : (
-          <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm">
-            <p className="text-6xl mb-4">🏜️</p>
-            <p className="text-slate-800 font-black text-2xl">No hay resultados para "{busqueda}"</p>
-            <p className="text-slate-500 font-medium mt-2">Prueba a buscar otro país o palabra clave.</p>
+          /* Pantalla de "No se han encontrado resultados" */
+          <div className="col-span-full text-center py-24 bg-white rounded-[3rem] border-4 border-dashed border-slate-100 animate__animated animate__pulse">
+            <p className="text-7xl mb-6">🏝️</p>
+            <p className="text-slate-800 font-black text-3xl">Sin resultados para "{busqueda}"</p>
             <button 
               onClick={() => setBusqueda('')} 
-              className="mt-6 text-blue-600 font-bold hover:underline"
+              className="mt-8 bg-blue-50 text-blue-600 px-8 py-4 rounded-2xl font-black hover:bg-blue-600 hover:text-white transition-all"
             >
-              Ver todos los destinos
+              Limpiar búsqueda
             </button>
           </div>
         )}
       </div>
 
-      {/* --- MODAL DE SELECCIÓN DE VUELOS (Se mantiene igual) --- */}
+      {/* --- MODAL DE VUELOS --- */}
       {modalAbierto && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-blue-600 p-6 text-white flex justify-between items-center shrink-0">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh] animate__animated animate__zoomIn animate__faster border border-white">
+            
+            {/* Header del Modal con degradado azul */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-8 text-white flex justify-between items-center shrink-0">
               <div>
-                <h3 className="text-2xl font-black">Elige tu Vuelo</h3>
-                <p className="text-blue-200 font-medium text-sm">Destino: {destinoSeleccionado?.name}</p>
+                <h3 className="text-3xl font-black tracking-tight">Elige tu Vuelo</h3>
+                <p className="text-blue-100 font-bold opacity-80 mt-1">Hacia: {destinoSeleccionado?.name}</p>
               </div>
-              <button onClick={() => setModalAbierto(false)} className="hover:bg-blue-700 p-2 rounded-full transition-colors">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={() => setModalAbierto(false)} className="bg-white/20 hover:bg-white/30 p-3 rounded-2xl transition-all active:scale-90">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto bg-slate-50 flex-grow">
+            {/* Cuerpo del Modal (Scrollable si hay muchos vuelos) */}
+            <div className="p-8 overflow-y-auto bg-slate-50/50 flex-grow">
               {buscandoVuelos ? (
-                <div className="text-center py-10">
-                  <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-slate-500 font-bold">Buscando conexiones aéreas...</p>
+                <div className="text-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 mx-auto mb-6"></div>
+                  <p className="text-slate-500 font-black text-xl">Buscando las mejores rutas...</p>
                 </div>
-              ) : vuelos.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {vuelos.map(vuelo => (
-                    <div key={vuelo.id} className="bg-white border-2 border-slate-100 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-center hover:border-blue-400 transition-colors shadow-sm">
-                      <div className="w-full sm:w-auto mb-4 sm:mb-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="bg-slate-900 text-white text-xs font-black px-2 py-1 rounded uppercase">Salida</span>
-                          <p className="font-black text-slate-800 text-lg">{vuelo.origin}</p>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {vuelos.map((vuelo, idx) => (
+                    <div 
+                      key={vuelo.id} 
+                      className="bg-white border-2 border-slate-100 rounded-3xl p-6 flex flex-col sm:flex-row justify-between items-center hover:border-blue-400 transition-all shadow-sm group animate__animated animate__fadeInUp"
+                      style={{ animationDelay: `${idx * 0.1}s` }}
+                    >
+                      {/* Información de Origen y Fechas */}
+                      <div className="w-full sm:w-auto text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
+                          <span className="bg-blue-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">Salida</span>
+                          <p className="font-black text-slate-800 text-2xl">{vuelo.origin}</p>
                         </div>
-                        <p className="text-sm text-slate-500 font-medium flex flex-col gap-1">
-                          <span>🛫 Ida: {new Date(vuelo.departure_date).toLocaleDateString()}</span>
-                          <span>🛬 Vuelta: {new Date(vuelo.return_date).toLocaleDateString()}</span>
-                        </p>
+                        <div className="space-y-1 text-slate-500 font-bold text-sm">
+                          <p>🛫 Ida: {new Date(vuelo.departure_date).toLocaleDateString()}</p>
+                          <p>🛬 Vuelta: {new Date(vuelo.return_date).toLocaleDateString()}</p>
+                        </div>
                       </div>
                       
-                      <div className="text-right w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-slate-100 pt-4 sm:pt-0 sm:pl-6 flex flex-row sm:flex-col justify-between items-center">
-                        <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase">Suplemento vuelo</p>
-                          <p className="text-2xl font-black text-blue-600">+{vuelo.price}€</p>
-                        </div>
+                      {/* Precio y Botón de Selección */}
+                      <div className="text-center sm:text-right w-full sm:w-auto mt-6 sm:mt-0 pt-6 sm:pt-0 border-t sm:border-t-0 sm:border-l-2 border-slate-100 sm:pl-8">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Plus por vuelo</p>
+                        <p className="text-3xl font-black text-blue-600 mb-4">+{vuelo.price}€</p>
                         <button 
                           onClick={() => confirmarVuelo(vuelo)}
-                          className="mt-0 sm:mt-3 bg-slate-900 text-white px-6 py-3 rounded-xl text-sm font-black hover:bg-blue-600 transition-colors shadow-md"
+                          className="w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-blue-600 transition-all active:scale-90 shadow-lg"
                         >
-                          Elegir Vuelo
+                          Seleccionar
                         </button>
                       </div>
                     </div>
                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-5xl mb-4">🛬</p>
-                  <p className="text-slate-600 font-bold text-lg">No hay vuelos programados</p>
                 </div>
               )}
             </div>
